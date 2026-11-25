@@ -14,4 +14,21 @@
 5. **Fresh:** a week told through bounty-arena terms, not a generic "busy week" line.
 
 ## Verification
-`node main.ts` (Node 22) writes the entry to `/output/entry.txt`, validates 1–100 characters and a single line, then reads the file back and checks it is identical. Measured: 62 bytes, no trailing newline. No network, no arguments, deterministic.
+`node main.ts` (Node 22) writes the entry to `/output/entry.txt`. Before writing it validates the text (1-100 characters, one line, no control characters, no leading/trailing whitespace). After writing it reads the file back as raw bytes and compares. No network, no arguments, deterministic. `ENTRY_OUTPUT_DIR` is an optional override of the output folder (default `/output`) used only for isolated testing.
+
+Measured results (entry = 62 characters, ASCII):
+
+| # | Command / check | Measured result | Pass |
+|---|-----------------|-----------------|------|
+| 1 | `node main.ts` | exit 0, `ok: 62 chars, 62 bytes written` | yes |
+| 2 | `cmp <(printf '%s' "$ENTRY") entry.txt` | byte-identical, no difference | yes |
+| 3 | `wc -c < entry.txt` | 62 bytes (limit 100) | yes |
+| 4 | `wc -m < entry.txt` | 62 characters | yes |
+| 5 | manual count: 12 words (5,5,3,3,5,4,3,2,6,9,2,4) + 11 spaces | 62 | yes |
+| 6 | `grep -c '' entry.txt` | 1 line | yes |
+| 7 | newline bytes (`tr -cd '\n' \| wc -c`) | 0, last byte is `.` (0x2e) | yes |
+| 8 | `iconv -f UTF-8 -t UTF-8` | valid UTF-8; non-ASCII bytes = 0 | yes |
+| 9 | leading/trailing whitespace (`t == t.strip()`) | none | yes |
+| 10 | two runs, `sha256sum` | identical (`e66ca82e442cc103...`) | yes |
+| 11 | negative: `"x "`, `" x"`, tab, `"a\nb"`, `"a\r"`, `""` | each rejected before anything is written | yes |
+| 12 | boundary: 100 chars accepted, 101 chars rejected (`length 101 chars (101 bytes) outside 1-100`) | as expected | yes |
